@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Кузница Судьбы — Локации</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #0a0a0a; font-family: Arial, sans-serif; }
+        
+        #ui {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 20; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+            max-width: 98%;
+        }
+        #ui button {
+            padding: 8px 14px; border: none; border-radius: 6px; font-size: 12px;
+            font-weight: bold; cursor: pointer; transition: 0.3s;
+            background: #2a2a2a; color: #ccc; border: 1px solid #444;
+        }
+        #ui button:hover { background: #ffa500; color: #1a1a1a; transform: scale(1.05); }
+        #ui button.gold { background: #ffa500; color: #1a1a1a; }
+        #ui button.location { background: #1a2a3a; color: #88ccff; border-color: #335577; }
+        #ui button.location:hover { background: #2a4a6a; color: #fff; }
+        #ui button.inventory { background: #2a1a3a; color: #cc88ff; border-color: #553377; }
+        #ui button.inventory:hover { background: #4a2a6a; color: #fff; }
+        #ui button.battle { background: #3a1a1a; color: #ff6666; border-color: #773333; }
+        #ui button.battle:hover { background: #6a2a2a; color: #fff; }
+        #ui button.forest { background: #1a3a1a; color: #66ff88; border-color: #337755; }
+        #ui button.forest:hover { background: #2a5a2a; color: #fff; }
+        #ui button.castle { background: #3a3a1a; color: #ffcc66; border-color: #777733; }
+        #ui button.castle:hover { background: #5a5a2a; color: #fff; }
+        #ui button.lake { background: #1a2a3a; color: #66ccff; border-color: #335577; }
+        #ui button.lake:hover { background: #2a4a5a; color: #fff; }
+        #ui button.iso { background: #3a2a1a; color: #ffaa66; border-color: #775533; }
+        #ui button.iso:hover { background: #5a3a2a; color: #fff; }
+
+        #info {
+            position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
+            z-index: 20; color: #888; font-size: 13px;
+            background: rgba(0,0,0,0.8); padding: 8px 20px; border-radius: 20px;
+            border: 1px solid #333; text-align: center;
+        }
+        #stats {
+            position: fixed; top: 70px; right: 15px; z-index: 20;
+            color: #aaa; font-size: 13px; background: rgba(0,0,0,0.8);
+            padding: 12px 16px; border-radius: 12px; border: 1px solid #333;
+            min-width: 160px; text-align: right; line-height: 1.8;
+        }
+        #stats span { color: #ffa500; }
+        #locationName {
+            position: fixed; top: 70px; left: 15px; z-index: 20;
+            color: #ffa500; font-size: 16px; font-weight: bold;
+            background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 12px;
+            border: 1px solid #333;
+        }
+
+        #inventoryModal, #craftModal, #questModal, #battleModal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 100;
+            display: none; justify-content: center; align-items: center;
+        }
+        #inventoryModal.active, #craftModal.active, #questModal.active, #battleModal.active { display: flex; }
+        #inventoryContent, #craftContent, #questContent, #battleContent {
+            background: #1a1a1a; border-radius: 16px; padding: 25px;
+            max-width: 500px; width: 90%; max-height: 80vh;
+            border: 1px solid #333; overflow-y: auto;
+        }
+        #inventoryContent h2, #craftContent h2, #questContent h2, #battleContent h2 {
+            color: #ffa500; text-align: center; margin-bottom: 15px;
+        }
+        .inv-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 8px; margin-bottom: 15px;
+        }
+        .inv-slot {
+            background: #2a2a2a; border: 1px solid #444; border-radius: 6px;
+            padding: 8px; text-align: center; min-height: 70px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 11px;
+        }
+        .inv-slot .name { color: #fff; margin-top: 3px; }
+        .inv-slot .icon { font-size: 24px; }
+        .inv-slot .actions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; justify-content: center; }
+        .inv-slot .actions button { padding: 2px 6px; font-size: 9px; border: none; border-radius: 3px; cursor: pointer; background: #444; color: #fff; }
+        .inv-slot .actions button:hover { background: #ffa500; color: #1a1a1a; }
+        #closeInventory, #closeCraft, #closeQuest, #closeBattle {
+            display: block; margin: 10px auto 0; padding: 8px 24px;
+            background: #ffa500; color: #1a1a1a; border: none;
+            border-radius: 8px; font-size: 14px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        #closeInventory:hover, #closeCraft:hover, #closeQuest:hover, #closeBattle:hover { transform: scale(1.05); }
+        .craft-item, .quest-item {
+            background: #2a2a2a; border: 1px solid #444; border-radius: 6px;
+            padding: 12px; margin-bottom: 8px; display: flex;
+            justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 8px;
+        }
+        .craft-item .info, .quest-item .info { color: #fff; }
+        .craft-item .info .name { font-weight: bold; }
+        .craft-item .info .cost { font-size: 11px; color: #888; }
+        .craft-item button {
+            padding: 4px 14px; border: none; border-radius: 4px;
+            background: #ffa500; color: #1a1a1a; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .craft-item button:hover { transform: scale(1.05); }
+        .craft-item button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .battle-enemy {
+            text-align: center; padding: 15px; background: #2a1a1a;
+            border-radius: 10px; margin-bottom: 12px; border: 1px solid #553333;
+        }
+        .battle-enemy .name { color: #ff6666; font-size: 20px; font-weight: bold; }
+        .battle-enemy .hp { color: #ff8888; font-size: 16px; }
+        .battle-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .battle-actions button {
+            padding: 10px 20px; border: none; border-radius: 6px;
+            font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.3s;
+        }
+        .battle-actions button:hover { transform: scale(1.05); }
+        .battle-actions .attack { background: #cc3333; color: #fff; }
+        .battle-actions .defend { background: #3366cc; color: #fff; }
+        .battle-actions .flee { background: #666666; color: #fff; }
+        .battle-actions .attack:hover { background: #ff4444; }
+        .battle-actions .defend:hover { background: #4488ff; }
+        .battle-actions .flee:hover { background: #888888; }
+        .battle-log {
+            background: #0a0a0a; border-radius: 6px; padding: 8px; margin-top: 8px;
+            color: #aaa; font-size: 12px; max-height: 80px; overflow-y: auto;
+            border: 1px solid #333;
+        }
+        .battle-log .player { color: #88ff88; }
+        .battle-log .enemy { color: #ff8888; }
+        .battle-log .system { color: #ffcc44; }
+
+        #soundToggle {
+            position: fixed; top: 120px; left: 15px; z-index: 20;
+            padding: 6px 14px; border: none; border-radius: 6px;
+            background: #2a2a2a; color: #ccc; font-size: 12px;
+            cursor: pointer; border: 1px solid #444; transition: 0.3s;
+        }
+        #soundToggle:hover { background: #ffa500; color: #1a1a1a; }
+
+        @media (max-width: 600px) {
+            #ui button { padding: 5px 8px; font-size: 10px; }
+            #stats { font-size: 11px; padding: 8px 12px; min-width: 100px; top: 60px; right: 8px; }
+            #info { font-size: 10px; padding: 5px 12px; top: 10px; width: 90%; }
+            #locationName { font-size: 12px; padding: 5px 10px; top: 60px; left: 8px; }
+            .inv-grid { grid-template-columns: repeat(3, 1fr); }
+            #inventoryContent, #craftContent, #questContent, #battleContent { padding: 12px; }
+            .battle-actions button { padding: 6px 12px; font-size: 12px; }
+            #soundToggle { top: 100px; left: 8px; font-size: 10px; padding: 4px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="info">🖱️ Перетащите мышью · Колесико для приближения</div>
+    <div id="locationName">🏠 Кузница</div>
+    <button id="soundToggle" onclick="toggleSound()">🔊 ЗВУК ВКЛ</button>
+
+    <div id="stats">
+        ⚡ Энергия: <span id="energy">100</span><br>
+        💰 Золото: <span id="gold">50</span><br>
+        📦 Предметов: <span id="itemCount">0</span><br>
+        🎯 Уровень: <span id="level">1</span>
+    </div>
+
+    <div id="ui">
+        <button class="location" onclick="goToForge()">🏠 КУЗНИЦА</button>
+        <button class="location" onclick="goToMine()">⛏️ РУДНИК</button>
+        <button class="location" onclick="goToCave()">🕯️ ПЕЩЕРЫ</button>
+        <button class="location" onclick="goToMarket()">🏪 РЫНОК</button>
+        <button class="forest" onclick="goToForest()">🌲 ЛЕС</button>
+        <button class="castle" onclick="goToCastle()">🏰 ЗАМОК</button>
+        <button class="lake" onclick="goToLake()">🌊 ОЗЕРО</button>
+        <button class="battle" onclick="openBattle()">⚔️ БИТВА</button>
+        <button class="gold" onclick="forgeAction()">⚒️ КОВАТЬ</button>
+        <button class="inventory" onclick="openCraft()">🔧 КРАФТ</button>
+        <button class="inventory" onclick="openInventory()">🎒 ИНВЕНТАРЬ</button>
+        <button class="inventory" onclick="openQuests()">📜 КВЕСТЫ</button>
+        <button class="iso" onclick="toggleIsometric()">📐 ИЗОМЕТРИЯ</button>
+        <button onclick="resetCamera()">🔄 СБРОС</button>
+    </div>
+
+    <!-- ИНВЕНТАРЬ -->
+    <div id="inventoryModal">
+        <div id="inventoryContent">
+            <h2>🎒 ИНВЕНТАРЬ</h2>
+            <div class="inv-grid" id="inventoryGrid"></div>
+            <button id="closeInventory" onclick="closeInventory()">✕ ЗАКРЫТЬ</button>
+        </div>
+    </div>
+
+    <!-- КРАФТ -->
+    <div id="craftModal">
+        <div id="craftContent">
+            <h2>🔧 КРАФТИНГ</h2>
+            <div id="craftList"></div>
+            <button id="closeCraft" onclick="closeCraft()">✕ ЗАКРЫТЬ</button>
+        </div>
+    </div>
+
+    <!-- КВЕСТЫ -->
+    <div id="questModal">
+        <div id="questContent">
+            <h2>📜 ЕЖЕДНЕВНЫЕ КВЕСТЫ</h2>
+            <div id="questList"></div>
+            <button id="closeQuest" onclick="closeQuests()">✕ ЗАКРЫТЬ</button>
+        </div>
+    </div>
+
+    <!-- БИТВА -->
+    <div id="battleModal">
+        <div id="battleContent">
+            <h2>⚔️ БИТВА</h2>
+            <div id="battleEnemy"></div>
+            <div class="battle-actions">
+                <button class="attack" onclick="battleAttack()">🗡️ АТАКОВАТЬ</button>
+                <button class="defend" onclick="battleDefend()">🛡️ ЗАЩИТА</button>
+                <button class="flee" onclick="battleFlee()">🏃 УБЕЖАТЬ</button>
+            </div>
+            <div class="battle-log" id="battleLog"></div>
+            <button id="closeBattle" onclick="closeBattle()">✕ ЗАКРЫТЬ</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js">
+    </script>
+
+    <script>
+        // ============================================================
+        // 0. ЗВУКИ
+        // ============================================================
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const oscillator = ctx.createOscillator();
+                const gain = ctx.createGain();
+                oscillator.connect(gain);
+                gain.connect(ctx.destination);
+                const now = ctx.currentTime;
+
+                switch (type) {
+                    case 'forge':
+                        oscillator.type = 'square';
+                        oscillator.frequency.setValueAtTime(800, now);
+                        oscillator.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+                        gain.gain.setValueAtTime(0.25, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                        oscillator.start(now);
+                        oscillator.stop(now + 0.1);
+                        const bufferSize = ctx.sampleRate * 0.05;
+                        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                        const data = buffer.getChannelData(0);
+                        for (let i = 0; i < bufferSize; i++) {
+                            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / bufferSize * 5);
+                        }
+                        const noise = ctx.createBufferSource();
+                        noise.buffer = buffer;
+                        const noiseGain = ctx.createGain();
+                        noiseGain.gain.setValueAtTime(0.15, now);
+                        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                        noise.connect(noiseGain);
+                        noiseGain.connect(ctx.destination);
+                        noise.start(now);
+                        noise.stop(now + 0.05);
+                        break;
+                    case 'battle_hit':
+                        oscillator.type = 'sawtooth';
+                        oscillator.frequency.setValueAtTime(300, now);
+                        oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+                        gain.gain.setValueAtTime(0.35, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                        oscillator.start(now);
+                        oscillator.stop(now + 0.15);
+                        break;
+                    case 'battle_roar':
+                        oscillator.type = 'sawtooth';
+                        oscillator.frequency.setValueAtTime(150, now);
+                        oscillator.frequency.exponentialRampToValueAtTime(80, now + 0.3);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                        oscillator.start(now);
+                        oscillator.stop(now + 0.3);
+                        break;
+                    case 'victory':
+                        const vNotes = [523, 659, 784, 1047];
+                        vNotes.forEach((freq, i) => {
+                            const osc = ctx.createOscillator();
+                            const g = ctx.createGain();
+                            osc.connect(g);
+                            g.connect(ctx.destination);
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(freq, now + i * 0.1);
+                            g.gain.setValueAtTime(0.2, now + i * 0.1);
+                            g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.15);
+                            osc.start(now + i * 0.1);
+                            osc.stop(now + i * 0.1 + 0.15);
+                        });
+                        break;
+                    case 'error':
+                        oscillator.type = 'square';
+                        oscillator.frequency.setValueAtTime(200, now);
+                        gain.gain.setValueAtTime(0.15, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                        oscillator.start(now);
+                        oscillator.stop(now + 0.2);
+                        break;
+                    case 'item':
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(600, now);
+                        oscillator.frequency.exponentialRampToValueAtTime(900, now + 0.1);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                        oscillator.start(now);
+                        oscillator.stop(now + 0.1);
+                        break;
+                    case 'levelup':
+                        const lvlNotes = [523, 659, 784, 1047, 784, 659];
+                        lvlNotes.forEach((freq, i) => {
+                            const osc = ctx.createOscillator();
+                            const g = ctx.createGain();
+                            osc.connect(g);
+                            g.connect(ctx.destination);
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                            g.gain.setValueAtTime(0.15, now + i * 0.08);
+                            g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.12);
+                            osc.start(now + i * 0.08);
+                            osc.stop(now + i * 0.08 + 0.12);
+                        });
+                        break;
+                    case 'potion':
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(500, now);
+                        oscillator.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+                        gain.gain.setValueAtTime(0.15, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                        oscillator.start(now);
+                        oscillator.stop(now + 0.2);
+                        break;
+                    default:
+                        break;
+                }
+            } catch (e) {
+                console.warn('⚠️ Звук не воспроизведён:', e);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundToggle').textContent = soundEnabled ? '🔊 ЗВУК ВКЛ' : '🔇 ЗВУК ВЫКЛ';
+            if (soundEnabled && audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // ============================================================
+        // 1. ДАННЫЕ
+        // ============================================================
+        const ITEMS = {
+            iron_sword: { id: 'iron_sword', name: 'Железный меч', icon: '⚔️', sellPrice: 10, craftCost: { iron: 2 },
+                file: 'mech_iron.glb' },
+            silver_ring: { id: 'silver_ring', name: 'Серебряное кольцо', icon: '💍', sellPrice: 20, craftCost: { silver: 2 },
+                file: 'ring.glb' },
+            gold_amulet: { id: 'gold_amulet', name: 'Золотой амулет', icon: '📿', sellPrice: 40, craftCost: { gold: 2 },
+                file: 'amulet.glb' },
+            mithril_shield: { id: 'mithril_shield', name: 'Мифриловый щит', icon: '🛡️', sellPrice: 80,
+                craftCost: { mithril: 2 }, file: 'shield.glb' },
+            health_potion: { id: 'health_potion', name: 'Зелье здоровья', icon: '🧪', sellPrice: 7, craftCost: { herb: 2 },
+                file: 'potion_health.glb' },
+            strength_potion: { id: 'strength_potion', name: 'Зелье силы', icon: '💪', sellPrice: 12, craftCost: { herb: 3 },
+                file: 'potion_strength.glb' },
+        };
+
+        const RESOURCES = {
+            iron: { name: 'Железо', icon: '🔩' },
+            silver: { name: 'Серебро', icon: '✨' },
+            gold: { name: 'Золото', icon: '🌟' },
+            mithril: { name: 'Мифрил', icon: '💎' },
+            herb: { name: 'Трава', icon: '🌿' },
+            wood: { name: 'Древесина', icon: '🪵' },
+            water: { name: 'Вода', icon: '💧' },
+        };
+
+        const MONSTERS = [
+            { id: 'goblin', name: 'Гоблин', icon: '👺', hp: 30, damage: 5, goldReward: 15, xpReward: 10,
+            file: 'goblin.glb' },
+            { id: 'wolf', name: 'Волк', icon: '🐺', hp: 40, damage: 8, goldReward: 25, xpReward: 15, file: 'wolf.glb' },
+            { id: 'golem', name: 'Каменный голем', icon: '🗿', hp: 60, damage: 10, goldReward: 40, xpReward: 25,
+                file: 'golem.glb' },
+            { id: 'dragon', name: 'Дракон', icon: '🐉', hp: 80, damage: 15, goldReward: 60, xpReward: 40, file: 'dragon.glb' },
+        ];
+
+        const QUESTS = [
+            { id: 'forge3', name: '🔨 Выковать 3 предмета', target: 3, reward: 20, progress: 0, type: 'forge' },
+            { id: 'mine2', name: '⛏️ Посетить рудник 2 раза', target: 2, reward: 15, progress: 0, type: 'mine' },
+            { id: 'cave1', name: '🕯️ Посетить пещеры 1 раз', target: 1, reward: 25, progress: 0, type: 'cave' },
+            { id: 'market2', name: '🏪 Посетить рынок 2 раза', target: 2, reward: 10, progress: 0, type: 'market' },
+            { id: 'craft1', name: '🔧 Создать 2 предмета в крафте', target: 2, reward: 30, progress: 0, type: 'craft' },
+            { id: 'battle3', name: '⚔️ Победить 3 монстров', target: 3, reward: 35, progress: 0, type: 'battle' },
+            { id: 'forest2', name: '🌲 Посетить лес 2 раза', target: 2, reward: 15, progress: 0, type: 'forest' },
+            { id: 'castle1', name: '🏰 Посетить замок 1 раз', target: 1, reward: 30, progress: 0, type: 'castle' },
+            { id: 'lake2', name: '🌊 Посетить озеро 2 раза', target: 2, reward: 20, progress: 0, type: 'lake' },
+        ];
+
+        // ============================================================
+        // 2. ИГРОК
+        // ============================================================
+        let player = {
+            energy: 100,
+            gold: 50,
+            level: 1,
+            xp: 0,
+            xpNext: 50,
+            inventory: [],
+            resources: { iron: 0, silver: 0, gold: 0, mithril: 0, herb: 0, wood: 0, water: 0 },
+            quests: {},
+            totalForged: 0,
+            totalMined: 0,
+            totalVisited: 0,
+            totalBattles: 0,
+            battleWins: 0,
+        };
+
+        let battleState = null;
+        let battleLogs = [];
+
+        // ============================================================
+        // 3. ЗАГРУЗКА/СОХРАНЕНИЕ
+        // ============================================================
+        function loadGame() {
+            try {
+                const saved = localStorage.getItem('kuznitsa_full_save');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    Object.assign(player, data);
+                    QUESTS.forEach(q => {
+                        if (player.quests[q.id] === undefined) {
+                            player.quests[q.id] = 0;
+                        }
+                    });
+                    console.log('💾 Игра загружена');
+                } else {
+                    QUESTS.forEach(q => { player.quests[q.id] = 0; });
+                }
+            } catch (e) { console.warn('⚠️ Нет сохранения');
+                QUESTS.forEach(q => { player.quests[q.id] = 0; }); }
+            updateUI();
+        }
+
+        function saveGame() {
+            try {
+                localStorage.setItem('kuznitsa_full_save', JSON.stringify(player));
+            } catch (e) { console.warn('⚠️ Ошибка сохранения'); }
+        }
+
+        function updateUI() {
+            document.getElementById('energy').textContent = Math.floor(player.energy);
+            document.getElementById('gold').textContent = player.gold;
+            document.getElementById('itemCount').textContent = player.inventory.length;
+            document.getElementById('level').textContent = player.level;
+            saveGame();
+        }
+
+        // ============================================================
+        // 4. УРОВНИ
+        // ============================================================
+        function addXP(amount) {
+            player.xp += amount;
+            while (player.xp >= player.xpNext) {
+                player.xp -= player.xpNext;
+                player.level++;
+                player.xpNext = Math.floor(player.xpNext * 1.5) + 20;
+                player.energy = Math.min(100, player.energy + 20);
+                playSound('levelup');
+                alert(`🎉 ПОВЫШЕНИЕ УРОВНЯ! Вы теперь ${player.level} уровень! +20 энергии`);
+                createSparks();
+            }
+            updateUI();
+        }
+
+        // ============================================================
+        // 5. ИНВЕНТАРЬ
+        // ============================================================
+        function openInventory() {
+            document.getElementById('inventoryModal').classList.add('active');
+            renderInventory();
+        }
+
+        function closeInventory() {
+            document.getElementById('inventoryModal').classList.remove('active');
+        }
+
+        function renderInventory() {
+            const grid = document.getElementById('inventoryGrid');
+            grid.innerHTML = '';
+
+            const resDiv = document.createElement('div');
+            resDiv.style.cssText =
+                'grid-column: 1/-1; background: #2a2a2a; border-radius: 8px; padding: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px;';
+            let resHTML = '';
+            for (let [key, val] of Object.entries(player.resources)) {
+                if (val > 0) {
+                    resHTML += `<span>${RESOURCES[key]?.icon || '📦'} ${RESOURCES[key]?.name || key}: ${val}</span>`;
+                }
+            }
+            if (!resHTML) resHTML = 'Нет ресурсов';
+            resDiv.innerHTML = resHTML;
+            grid.appendChild(resDiv);
+
+            if (player.inventory.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'grid-column: 1/-1; text-align:center; color:#666; padding:20px;';
+                empty.textContent = '📭 Инвентарь пуст';
+                grid.appendChild(empty);
+                return;
+            }
+
+            player.inventory.forEach((invItem, index) => {
+                const item = ITEMS[invItem.id];
+                if (!item) return;
+                const slot = document.createElement('div');
+                slot.className = 'inv-slot';
+                slot.innerHTML = `
+                    <div class="icon">${item.icon}</div>
+                    <div class="name">${item.name}</div>
+                    <div class="actions">
+                        ${item.id === 'health_potion' || item.id === 'strength_potion' ? 
+                            `<button onclick="usePotion(${index})">🧪 Использовать</button>` : ''}
+                        <button onclick="sellItem(${index})">💰 Продать (${item.sellPrice})</button>
+                    </div>
+                `;
+                grid.appendChild(slot);
+            });
+        }
+
+        function sellItem(index) {
+            const invItem = player.inventory[index];
+            if (!invItem) return;
+            const item = ITEMS[invItem.id];
+            if (!item) return;
+            player.gold += item.sellPrice;
+            player.inventory.splice(index, 1);
+            playSound('item');
+            alert(`💰 Продано ${item.name} за ${item.sellPrice} золота`);
+            updateUI();
+            renderInventory();
+        }
+
+        function usePotion(index) {
+            const invItem = player.inventory[index];
+            if (!invItem) return;
+            const item = ITEMS[invItem.id];
+            if (!item) return;
+            if (item.id === 'health_potion') {
+                player.energy = Math.min(100, player.energy + 30);
+                playSound('potion');
+                alert('❤️ +30 энергии!');
+            } else if (item.id === 'strength_potion') {
+                playSound('potion');
+                alert('💪 Сила +20% на 1 бой!');
+            }
+            player.inventory.splice(index, 1);
+            updateUI();
+            renderInventory();
+        }
+
+        // ============================================================
+        // 6. КРАФТ
+        // ============================================================
+        function openCraft() {
+            document.getElementById('craftModal').classList.add('active');
+            renderCraft();
+        }
+
+        function closeCraft() {
+            document.getElementById('craftModal').classList.remove('active');
+        }
+
+        function renderCraft() {
+            const list = document.getElementById('craftList');
+            list.innerHTML = '';
+            for (let [id, item] of Object.entries(ITEMS)) {
+                const div = document.createElement('div');
+                div.className = 'craft-item';
+                let costText = '';
+                let canCraft = true;
+                for (let [res, count] of Object.entries(item.craftCost || {})) {
+                    const have = player.resources[res] || 0;
+                    costText += `${RESOURCES[res]?.icon || '📦'} ${RESOURCES[res]?.name || res}: ${have}/${count} `;
+                    if (have < count) canCraft = false;
+                }
+                div.innerHTML = `
+                    <div class="info">
+                        <div class="name">${item.icon} ${item.name}</div>
+                        <div class="cost">${costText}</div>
+                    </div>
+                    <button onclick="craftItem('${id}')" ${canCraft ? '' : 'disabled'}>
+                        ${canCraft ? '🔨 Создать' : '❌ Не хватает'}
+                    </button>
+                `;
+                list.appendChild(div);
+            }
+        }
+
+        function craftItem(itemId) {
+            const item = ITEMS[itemId];
+            if (!item) return;
+            for (let [res, count] of Object.entries(item.craftCost || {})) {
+                if ((player.resources[res] || 0) < count) {
+                    playSound('error');
+                    alert('❌ Не хватает ресурсов');
+                    return;
+                }
+            }
+            for (let [res, count] of Object.entries(item.craftCost || {})) {
+                player.resources[res] -= count;
+            }
+            player.inventory.push({ id: itemId, count: 1 });
+            player.quests.craft1 = (player.quests.craft1 || 0) + 1;
+            playSound('item');
+            alert(`✅ Создано: ${item.name}`);
+            updateUI();
+            renderCraft();
+            renderInventory();
+            checkQuests();
+        }
+
+        // ============================================================
+        // 7. КВЕСТЫ
+        // ============================================================
+        function openQuests() {
+            document.getElementById('questModal').classList.add('active');
+            renderQuests();
+        }
+
+        function closeQuests() {
+            document.getElementById('questModal').classList.remove('active');
+        }
+
+        function renderQuests() {
+            const list = document.getElementById('questList');
+            list.innerHTML = '';
+            let completed = 0;
+            QUESTS.forEach(q => {
+                const progress = player.quests[q.id] || 0;
+                const done = progress >= q.target;
+                if (done) completed++;
+                const div = document.createElement('div');
+                div.className = 'quest-item';
+                div.innerHTML = `
+                    <div class="info">
+                        <div class="name">${q.name}</div>
+                        <div class="progress">${done ? '✅ Выполнено!' : `${progress}/${q.target}`}</div>
+                    </div>
+                    <div class="reward">${done ? '✅' : '💰 +' + q.reward}</div>
+                `;
+                list.appendChild(div);
+            });
+            if (completed >= QUESTS.length) {
+                const allDone = document.createElement('div');
+                allDone.style.cssText = 'text-align:center;color:#88ff88;padding:20px;font-size:18px;';
+                allDone.textContent = '🎉 ВСЕ КВЕСТЫ ВЫПОЛНЕНЫ!';
+                list.appendChild(allDone);
+            }
+        }
+
+        function checkQuests() {
+            let anyCompleted = false;
+            QUESTS.forEach(q => {
+                const progress = player.quests[q.id] || 0;
+                if (progress >= q.target && !q._claimed) {
+                    q._claimed = true;
+                    player.gold += q.reward;
+                    anyCompleted = true;
+                    playSound('victory');
+                    alert(`✅ Квест выполнен: ${q.name}! +${q.reward} золота`);
+                }
+            });
+            if (anyCompleted) updateUI();
+        }
+
+        // ============================================================
+        // 8. БИТВА
+        // ============================================================
+        function openBattle() {
+            const monster = MONSTERS[Math.floor(Math.random() * MONSTERS.length)];
+            battleState = {
+                monster: { ...monster },
+                playerDefending: false,
+                playerBuff: 1,
+                turn: 0,
+            };
+            battleLogs = ['⚔️ Битва началась!'];
+            playSound('battle_roar');
+            document.getElementById('battleModal').classList.add('active');
+            renderBattle();
+        }
+
+        function closeBattle() {
+            document.getElementById('battleModal').classList.remove('active');
+            battleState = null;
+        }
+
+        function renderBattle() {
+            if (!battleState) return;
+            const enemyDiv = document.getElementById('battleEnemy');
+            const m = battleState.monster;
+            enemyDiv.innerHTML = `
+                <div class="battle-enemy">
+                    <div class="name">${m.icon} ${m.name}</div>
+                    <div class="hp">❤️ HP: ${Math.max(0, m.hp)} / ${MONSTERS.find(mm => mm.id === m.id).hp}</div>
+                </div>
+            `;
+
+            const logDiv = document.getElementById('battleLog');
+            logDiv.innerHTML = battleLogs.map(msg => `<div>${msg}</div>`).join('');
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function battleAttack() {
+            if (!battleState) return;
+            const m = battleState.monster;
+            const damage = Math.floor(8 + Math.random() * 6 + player.level * 2);
+            const crit = Math.random() < 0.15;
+            const totalDamage = crit ? damage * 2 : damage;
+            m.hp -= totalDamage;
+
+            playSound('battle_hit');
+            battleLogs.push(`<span class="player">🗡️ Вы нанесли ${totalDamage} урона${crit ? ' 💥 КРИТ!' : ''}</span>`);
+
+            if (m.hp <= 0) {
+                const goldReward = m.goldReward + Math.floor(player.level * 2);
+                const xpReward = m.xpReward + Math.floor(player.level * 1.5);
+                player.gold += goldReward;
+                player.battleWins++;
+                player.totalBattles++;
+                player.quests.battle3 = (player.quests.battle3 || 0) + 1;
+                playSound('victory');
+                battleLogs.push(`<span class="system">🎉 ПОБЕДА! +${goldReward} золота, +${xpReward} опыта</span>`);
+                addXP(xpReward);
+                updateUI();
+                checkQuests();
+
+                if (Math.random() < 0.3) {
+                    const resKeys = Object.keys(player.resources);
+                    const r = resKeys[Math.floor(Math.random() * resKeys.length)];
+                    player.resources[r] = (player.resources[r] || 0) + 1;
+                    battleLogs.push(`<span class="system">📦 Найден ресурс: ${RESOURCES[r]?.name || r}</span>`);
+                }
+
+                renderBattle();
+                setTimeout(() => {
+                    alert(`🎉 Победа над ${m.name}! +${goldReward} золота, +${xpReward} опыта`);
+                    closeBattle();
+                }, 1500);
+                return;
+            }
+
+            battleState.turn++;
+            const monsterDamage = Math.floor(m.damage + Math.random() * 3);
+            const defended = battleState.playerDefending;
+            const finalDamage = defended ? Math.floor(monsterDamage * 0.3) : monsterDamage;
+            player.energy -= Math.min(player.energy, finalDamage * 0.5);
+
+            battleLogs.push(`<span class="enemy">💢 ${m.name} нанёс ${finalDamage} урона${defended ? ' (защита)' : ''}</span>`);
+
+            if (player.energy <= 0) {
+                player.energy = 5;
+                battleLogs.push(`<span class="system">💀 Вы проиграли! Осталось 5 энергии</span>`);
+                renderBattle();
+                setTimeout(() => {
+                    alert('💀 Поражение! Осталось 5 энергии');
+                    closeBattle();
+                }, 1500);
+                return;
+            }
+
+            battleState.playerDefending = false;
+            renderBattle();
+            updateUI();
+        }
+
+        function battleDefend() {
+            if (!battleState) return;
+            battleState.playerDefending = true;
+            battleLogs.push(`<span class="player">🛡️ Вы встали в защиту</span>`);
+            renderBattle();
+        }
+
+        function battleFlee() {
+            if (!battleState) return;
+            if (Math.random() < 0.5) {
+                battleLogs.push(`<span class="system">🏃 Вы сбежали!</span>`);
+                renderBattle();
+                setTimeout(() => {
+                    alert('🏃 Вы сбежали с поля боя');
+                    closeBattle();
+                }, 1000);
+            } else {
+                battleLogs.push(`<span class="system">❌ Не удалось сбежать!</span>`);
+                renderBattle();
+                battleAttack();
+            }
+        }
+
+        // ============================================================
+        // 9. THREE.JS — СЦЕНА
+        // ============================================================
+        console.log('🚀 ЗАПУСК...');
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+        scene.fog = new THREE.Fog(0x1a1a2e, 10, 18);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(6, 4, 9);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.prepend(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.target.set(0, 1, 0);
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.6;
+
+        function resetCamera() {
+            controls.autoRotate = true;
+            camera.position.set(6, 4, 9);
+            controls.target.set(0, 1, 0);
+            document.getElementById('info').textContent = '🖱️ Перетащите мышью · Колесико для приближения';
+        }
+
+        // ============================================================
+        // 10. ИЗОМЕТРИЯ
+        // ============================================================
+        let isIsometric = false;
+
+        function toggleIsometric() {
+            isIsometric = !isIsometric;
+            if (isIsometric) {
+                camera.position.set(8, 8, 8);
+                controls.target.set(0, 0, 0);
+                controls.enableZoom = true;
+                controls.autoRotate = false;
+                document.getElementById('info').textContent = '📐 Изометрический вид · Перетащите мышью';
+            } else {
+                camera.position.set(6, 4, 9);
+                controls.target.set(0, 0.8, 0);
+                controls.autoRotate = true;
+                document.getElementById('info').textContent = '🖱️ Перетащите мышью · Колесико для приближения';
+            }
+        }
+
+        // ============================================================
+        // 11. ОСВЕЩЕНИЕ
+        // ============================================================
+        const ambient = new THREE.AmbientLight(0x404060, 0.4);
+        scene.add(ambient);
+
+        const sun = new THREE.DirectionalLight(0xffeedd, 1.2);
+        sun.position.set(5, 10, 7);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        const d2 = 10;
+        sun.shadow.camera.left = -d2;
+        sun.shadow.camera.right = d2;
+        sun.shadow.camera.top = d2;
+        sun.shadow.camera.bottom = -d2;
+        sun.shadow.camera.near = 1;
+        sun.shadow.camera.far = 25;
+        scene.add(sun);
+
+        const fill = new THREE.DirectionalLight(0x4488ff, 0.3);
+        fill.position.set(-5, 3, -5);
+        scene.add(fill);
+
+        const forgeLight = new THREE.PointLight(0xff4400, 0.8, 5);
+        forgeLight.position.set(3.5, 1.5, 1.8);
+        scene.add(forgeLight);
+
+        // ============================================================
+        // 12. ПОЛ
+        // ============================================================
+        const floorMat = new THREE.MeshStandardMaterial({
+            color: 0x2a2a3a,
+            roughness: 0.9,
+            metalness: 0.1
+        });
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.01;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        const grid = new THREE.GridHelper(10, 12, 0xff6600, 0x444466);
+        grid.position.y = 0;
+        scene.add(grid);
+
+        // ============================================================
+        // 13. МОДЕЛИ КУЗНИЦЫ И ЛОКАЦИЙ
+        // ============================================================
+        let forgeModels = [];
+        let locationModel = null;
+        let locationModelsCache = {}; // Кеш загруженных локаций
+
+        function showForge() {
+            if (locationModel) {
+                scene.remove(locationModel);
+                locationModel = null;
+            }
+            forgeModels.forEach(m => m.visible = true);
+            controls.target.set(0, 1, 0);
+            camera.position.set(6, 4, 9);
+            controls.autoRotate = true;
+            document.getElementById('locationName').textContent = '🏠 Кузница';
+            scene.background = new THREE.Color(0x1a1a2e);
+        }
+
+        function loadLocationModel(file, name, color, text) {
+            // Скрываем кузницу
+            forgeModels.forEach(m => m.visible = false);
+
+            // Удаляем старую локацию
+            if (locationModel) {
+                scene.remove(locationModel);
+                locationModel = null;
+            }
+
+            // Проверяем кеш
+            if (locationModelsCache[file]) {
+                // Используем закешированную модель
+                const model = locationModelsCache[file].clone();
+                model.position.set(0, 0, 0);
+                model.scale.set(1.5, 1.5, 1.5);
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                scene.add(model);
+                locationModel = model;
+                console.log('✅ Локация из кеша: ' + name);
+                updateLocationUI(color, text);
+                return;
+            }
+
+            // Загружаем новую модель
+            console.log('📁 Загрузка локации: ' + file);
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                file,
+                (gltf) => {
+                    const model = gltf.scene;
+                    model.position.set(0, 0, 0);
+                    model.scale.set(1.5, 1.5, 1.5);
+                    model.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    scene.add(model);
+                    locationModel = model;
+                    // Сохраняем в кеш
+                    locationModelsCache[file] = model.clone();
+                    console.log('✅ Локация загружена: ' + name);
+                    updateLocationUI(color, text);
+                },
+                undefined,
+                (error) => {
+                    console.warn('⚠️ Ошибка загрузки локации: ' + file);
+                    // Создаём заглушку
+                    createFallbackLocation(color, text);
+                }
+            );
+        }
+
+        function createFallbackLocation(color, text) {
+            const group = new THREE.Group();
+            const platform = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.5, 1.8, 0.2, 16),
+                new THREE.MeshStandardMaterial({ color: color, roughness: 0.7, metalness: 0.1 })
+            );
+            platform.position.y = 0.1;
+            platform.receiveShadow = true;
+            platform.castShadow = true;
+            group.add(platform);
+
+            const textMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: color, emissiveIntensity: 0.2 });
+            const textCube = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), textMat);
+            textCube.position.y = 0.6;
+            textCube.castShadow = true;
+            group.add(textCube);
+
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const small = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.15, 0.15, 0.15),
+                    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: color, emissiveIntensity: 0.1 })
+                );
+                small.position.set(Math.cos(angle) * 1.0, 0.3, Math.sin(angle) * 1.0);
+                group.add(small);
+            }
+
+            group.position.set(0, 0, 0);
+            scene.add(group);
+            locationModel = group;
+            updateLocationUI(color, text);
+        }
+
+        function updateLocationUI(color, text) {
+            controls.target.set(0, 0.8, 0);
+            camera.position.set(4, 3, 6);
+            controls.autoRotate = true;
+            document.getElementById('locationName').textContent = text;
+            scene.background = new THREE.Color(color);
+        }
+
+        // ============================================================
+        // 14. ЗАГРУЗКА МОДЕЛЕЙ КУЗНИЦЫ
+        // ============================================================
+        const loader = new THREE.GLTFLoader();
+        let loadedCount = 0;
+        const totalModels = 17;
+
+        function onModelLoaded(name) {
+            loadedCount++;
+            console.log(`✅ ${name} (${loadedCount}/${totalModels})`);
+            if (loadedCount >= totalModels) {
+                document.getElementById('info').textContent = '✅ Все модели загружены! 🖱️ Вращайте мышью';
+                console.log('🎉 ВСЕ МОДЕЛИ ЗАГРУЖЕНЫ!');
+                loadGame();
+            }
+        }
+
+        function onModelError(name) {
+            console.error(`❌ Ошибка: ${name}`);
+            loadedCount++;
+            if (loadedCount >= totalModels) {
+                document.getElementById('info').textContent = `⚠️ Некоторые модели не загружены`;
+                loadGame();
+            }
+        }
+
+        function loadModel(file, x, y, z, scale, name, isForge) {
+            loader.load(
+                file,
+                (gltf) => {
+                    const model = gltf.scene;
+                    model.position.set(x, y, z);
+                    model.scale.set(scale, scale, scale);
+                    model.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    scene.add(model);
+                    if (isForge) {
+                        forgeModels.push(model);
+                    }
+                    onModelLoaded(name || file);
+                },
+                undefined,
+                () => { onModelError(name || file); }
+            );
+        }
+
+        // Загрузка моделей кузницы
+        loadModel('kuznec.glb', 0.5, 0, 0.5, 0.9, 'Кузнец', true);
+        loadModel('nakovalnya.glb', 0, 0, 0, 0.8, 'Наковальня', true);
+        loadModel('gorn.glb', 3.5, 0, 1.8, 0.9, 'Горн', true);
+        loadModel('verstak.glb', -3.5, 0, 1.8, 0.8, 'Верстак', true);
+        loadModel('voin.glb', -2.5, 0, 2.5, 0.8, 'Воин', true);
+        loadModel('devushka.glb', -1.5, 0, 4.0, 0.8, 'Девушка', true);
+        loadModel('kupec.glb', 2.0, 0, 4.5, 0.8, 'Купец', true);
+
+        // Монстры (скрыты)
+        loadModel('goblin.glb', 0, -10, 0, 0.8, 'Гоблин', false);
+        loadModel('wolf.glb', 0, -10, 0, 0.8, 'Волк', false);
+        loadModel('golem.glb', 0, -10, 0, 0.8, 'Голем', false);
+        loadModel('dragon.glb', 0, -10, 0, 0.8, 'Дракон', false);
+
+        // Локации (загружаются, но скрыты внизу)
+        loadModel('rudnik.glb', 0, -10, 0, 1.5, 'Рудник', false);
+        loadModel('peschera.glb', 0, -10, 0, 1.5, 'Пещеры', false);
+        loadModel('rynok.glb', 0, -10, 0, 1.5, 'Рынок', false);
+        loadModel('forest.glb', 0, -10, 0, 1.5, 'Лес', false);
+        loadModel('castle.glb', 0, -10, 0, 1.5, 'Замок', false);
+        loadModel('lake.glb', 0, -10, 0, 1.5, 'Озеро', false);
+
+        // ============================================================
+        // 15. ПЕРЕХОДЫ В ЛОКАЦИИ (ЗАГРУЗКА РЕАЛЬНЫХ МОДЕЛЕЙ)
+        // ============================================================
+        function goToForge() {
+            showForge();
+            playSound('item');
+            alert('🏠 Вы вернулись в кузницу');
+        }
+
+        function goToMine() {
+            loadLocationModel('rudnik.glb', 'Рудник', 0x8B4513, '⛏️ Рудник');
+            player.resources.iron = (player.resources.iron || 0) + 2;
+            player.resources.silver = (player.resources.silver || 0) + 1;
+            player.totalMined++;
+            player.quests.mine2 = (player.quests.mine2 || 0) + 1;
+            playSound('forge');
+            alert('⛏️ Добыто: Железо +2, Серебро +1');
+            updateUI();
+            checkQuests();
+        }
+
+        function goToCave() {
+            loadLocationModel('peschera.glb', 'Пещеры', 0x1a0a3a, '🕯️ Пещеры');
+            player.resources.gold = (player.resources.gold || 0) + 1;
+            player.resources.mithril = (player.resources.mithril || 0) + 1;
+            player.quests.cave1 = (player.quests.cave1 || 0) + 1;
+            playSound('item');
+            alert('🕯️ Найдено: Золото +1, Мифрил +1');
+            updateUI();
+            checkQuests();
+        }
+
+        function goToMarket() {
+            loadLocationModel('rynok.glb', 'Рынок', 0x3a2a1a, '🏪 Рынок');
+            player.resources.herb = (player.resources.herb || 0) + 3;
+            player.quests.market2 = (player.quests.market2 || 0) + 1;
+            playSound('item');
+            alert('🌿 Куплены травы: +3');
+            updateUI();
+            checkQuests();
+        }
+
+        function goToForest() {
+            loadLocationModel('forest.glb', 'Лес', 0x1a4a1a, '🌲 Лес');
+            player.resources.wood = (player.resources.wood || 0) + 3;
+            player.resources.herb = (player.resources.herb || 0) + 2;
+            player.quests.forest2 = (player.quests.forest2 || 0) + 1;
+            playSound('item');
+            alert('🌲 В лесу собрано: Древесина +3, Трава +2');
+            updateUI();
+            checkQuests();
+        }
+
+        function goToCastle() {
+            loadLocationModel('castle.glb', 'Замок', 0x4a4a1a, '🏰 Замок');
+            const goldFound = 5 + Math.floor(Math.random() * 15);
+            player.gold += goldFound;
+            player.quests.castle1 = (player.quests.castle1 || 0) + 1;
+            let extra = '';
+            if (Math.random() < 0.2) {
+                player.resources.mithril = (player.resources.mithril || 0) + 1;
+                extra = ' + Мифрил!';
+            }
+            playSound('victory');
+            alert(`🏰 Найдено: ${goldFound} золота${extra}`);
+            updateUI();
+            checkQuests();
+        }
+
+        function goToLake() {
+            loadLocationModel('lake.glb', 'Озеро', 0x1a3a5a, '🌊 Озеро');
+            player.resources.water = (player.resources.water || 0) + 3;
+            player.energy = Math.min(100, player.energy + 10);
+            player.quests.lake2 = (player.quests.lake2 || 0) + 1;
+            playSound('potion');
+            alert('🌊 У озера: Вода +3, Энергия +10');
+            updateUI();
+            checkQuests();
+        }
+
+        // ============================================================
+        // 16. КОВКА
+        // ============================================================
+        function forgeAction() {
+            if (player.energy < 10) {
+                playSound('error');
+                alert('❌ Нет энергии!');
+                return;
+            }
+            player.energy -= 10;
+            const bonus = 5 + Math.floor(Math.random() * 10);
+            const crit = Math.random() < 0.15;
+            const total = crit ? bonus * 3 : bonus;
+            player.gold += total;
+            player.totalForged++;
+            player.quests.forge3 = (player.quests.forge3 || 0) + 1;
+            playSound('forge');
+            alert(crit ? `✨ КРИТ! +${total} золота!` : `⚒️ +${total} золота`);
+            createSparks();
+            updateUI();
+            checkQuests();
+        }
+
+        // ============================================================
+        // 17. ИСКРЫ
+        // ============================================================
+        function createSparks() {
+            const colors = [0xff8800, 0xff4400, 0xffcc00];
+            for (let i = 0; i < 20; i++) {
+                const size = 0.02 + Math.random() * 0.05;
+                const spark = new THREE.Mesh(
+                    new THREE.SphereGeometry(size, 4, 4),
+                    new THREE.MeshBasicMaterial({
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        transparent: true,
+                        opacity: 1,
+                    })
+                );
+                spark.position.set(
+                    (Math.random() - 0.5) * 1.5,
+                    0.3 + Math.random() * 0.6,
+                    (Math.random() - 0.5) * 1.5
+                );
+                scene.add(spark);
+                const dir = new THREE.Vector3(
+                    (Math.random() - 0.5) * 3,
+                    Math.random() * 3 + 1,
+                    (Math.random() - 0.5) * 3
+                );
+                const life = 300 + Math.random() * 300;
+                const start = Date.now();
+
+                function animateSpark() {
+                    const elapsed = Date.now() - start;
+                    const progress = elapsed / life;
+                    if (progress >= 1) { scene.remove(spark); return; }
+                    spark.position.x += dir.x * 0.02;
+                    spark.position.y += dir.y * 0.02;
+                    spark.position.z += dir.z * 0.02;
+                    spark.material.opacity = 1 - progress;
+                    spark.scale.setScalar(1 - progress * 0.8);
+                    requestAnimationFrame(animateSpark);
+                }
+                animateSpark();
+            }
+        }
+
+        // ============================================================
+        // 18. ВОССТАНОВЛЕНИЕ ЭНЕРГИИ
+        // ============================================================
+        setInterval(() => {
+            if (player.energy < 100) {
+                player.energy = Math.min(100, player.energy + 1);
+                updateUI();
+            }
+        }, 8000);
+
+        // ============================================================
+        // 19. АНИМАЦИЯ
+        // ============================================================
+        let time = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.02;
+
+            forgeLight.intensity = 0.6 + Math.sin(time * 5) * 0.3 + Math.random() * 0.2;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // ============================================================
+        // 20. РАЗМЕРЫ ОКНА
+        // ============================================================
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ============================================================
+        // 21. ЭКСПОРТ
+        // ============================================================
+        window.forgeAction = forgeAction;
+        window.goToForge = goToForge;
+        window.goToMine = goToMine;
+        window.goToCave = goToCave;
+        window.goToMarket = goToMarket;
+        window.goToForest = goToForest;
+        window.goToCastle = goToCastle;
+        window.goToLake = goToLake;
+        window.resetCamera = resetCamera;
+        window.toggleIsometric = toggleIsometric;
+        window.openInventory = openInventory;
+        window.closeInventory = closeInventory;
+        window.openCraft = openCraft;
+        window.closeCraft = closeCraft;
+        window.openQuests = openQuests;
+        window.closeQuests = closeQuests;
+        window.openBattle = openBattle;
+        window.closeBattle = closeBattle;
+        window.battleAttack = battleAttack;
+        window.battleDefend = battleDefend;
+        window.battleFlee = battleFlee;
+        window.sellItem = sellItem;
+        window.usePotion = usePotion;
+        window.craftItem = craftItem;
+        window.toggleSound = toggleSound;
+
+        console.log('🎮 Игра с реальными локациями запущена!');
+        console.log('📁 Если модели локаций есть в папке — они загрузятся!');
+        console.log('📐 Нажмите "ИЗОМЕТРИЯ" для изометрического вида');
+    </script>
+</body>
+</html>
