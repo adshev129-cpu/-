@@ -2625,28 +2625,46 @@ const World = (function () {
   const FB_LOC = { mine: 'mine', cave: 'cave', market: 'market', forest: 'forest', castle: 'castle', lake: 'lake' };
 
   /* =====================  загрузка GLB  ===================== */
+  /* Файлы по 3–9 МБ: жёсткий таймаут по абсолютному времени на медленной сети режет загрузку
+   * на середине. Поэтому ждём, пока идёт прогресс, и сдаёмся только при простое канала
+   * (GLB_STALL_MS без байтов) или совсем уж запредельном времени. Неудача НЕ кэшируется —
+   * следующий запрос того же файла пробует снова. */
+  const GLB_STALL_MS = 25000, GLB_HARD_MS = 180000;
   function loadGLB(file) {
     if (state.glb === 'off') return Promise.resolve(null);
     if (state.loaders[file]) return state.loaders[file];
-    state.loaders[file] = new Promise(resolve => {
+    state.progress = state.progress || {};
+    const pr = new Promise(resolve => {
       if (!THREE_OK) return resolve(null);
-      let settled = false;
+      let settled = false, stallT = 0, hardT = 0;
+      const clear = () => { clearTimeout(stallT); clearTimeout(hardT); };
       const done = v => {
         if (settled) return;
         settled = true;
+        clear();
+        delete state.progress[file];
         if (v) {
           state.glb = 'ok';
           try { shrinkTextures(v, state.quality === 'low' ? 512 : 1024); } catch (e) { }
+        } else {
+          if (state.loaders[file] === pr) delete state.loaders[file];   // дать шанс повтору
+          if (state.glb !== 'ok') { state.glb = 'fail'; state.glbNote = true; }
         }
-        else if (state.glb !== 'ok') { state.glb = 'fail'; state.glbNote = true; }
         resolve(v);
       };
+      const armStall = () => { clearTimeout(stallT); stallT = setTimeout(() => done(null), GLB_STALL_MS); };
+      const onProgress = ev => {
+        if (ev && ev.total) state.progress[file] = ev.loaded / ev.total;
+        armStall();
+      };
       try {
-        new THREE.GLTFLoader().load(file, g => done(g && g.scene ? g.scene : null), undefined, () => done(null));
+        new THREE.GLTFLoader().load(file, g => done(g && g.scene ? g.scene : null), onProgress, () => done(null));
       } catch (e) { done(null); }
-      setTimeout(() => done(null), 15000);
+      armStall();
+      hardT = setTimeout(() => done(null), GLB_HARD_MS);
     });
-    return state.loaders[file];
+    state.loaders[file] = pr;
+    return pr;
   }
 
   /* примерка: гадать о доступности .glb лучше на одном файле */
@@ -3171,55 +3189,166 @@ const World = (function () {
   function addInteractable(obj, id, label) { state.interactables.push({ obj, id, label }); }
 
   /* =====================  ЛОКАЦИИ  ===================== */
-  async function showLocation(locId) {
-    if (!state.ok) { state.curLoc = locId; return; }
+  /* Локация = настоящая .glb-модель на большом диске почвы. Процедурные шары/балки/ёлки
+   * (buildLocationDecor) строятся ТОЛЬКО если модель не открылась: раньше они строились всегда
+   * и торчали сквозь модель (её след после подгонки — 6–8 м, декор стоял в радиусе 2–4 м).
+   * Пока файл качается, показываем почву; неудачную загрузку не кэшируем и повторяем. */
+  const LOC_RETRY_MAX = 3;
+  function showLocation(locId) {
+    if (!state.ok) { state.curLoc = locId; return Promise.resolve(); }
     const L = LOCATIONS[locId];
-    if (!L) return;
+    if (!L) return Promise.resolve();
     state.curLoc = locId;
     const inForge = locId === 'forge';
     state.forgeGroup.visible = inForge;
     state.roomGroup.visible = inForge;
     if (state.groundGroup) state.groundGroup.visible = inForge;   // каменный пол — только в кузнице
     if (state.locModel) {
-      if (state.locModel.userData.loc === locId) { state.locModel.visible = true; applyLocationLook(locId); return; }
+      if (state.locModel.userData.loc === locId) { state.locModel.visible = true; applyLocationLook(locId); return Promise.resolve(); }
       state.locModel.visible = false;
     }
-    if (inForge) { applyLocationLook(locId); return; }
-    if (state.locCache && state.locCache[locId]) {
-      state.locModel = state.locCache[locId];
-      state.locModel.visible = true;
-      state.locGroup.add(state.locModel);
+    if (inForge) { applyLocationLook(locId); return Promise.resolve(); }
+    state.locCache = state.locCache || {};
+    state.locBuilding = state.locBuilding || {};
+    const ready = state.locCache[locId] || state.locBuilding[locId];
+    if (ready) {
+      state.locModel = ready;
+      ready.visible = true;
+      state.locGroup.add(ready);
+      state.lakeWater = ready.userData.water || null;
       applyLocationLook(locId);
-      return;
+      return ready.userData.done || Promise.resolve();
     }
     const cfg = LOC_VIEW[locId] || {};
-    let src = null;
-    if (cfg.file && state.glb === 'ok') {
-      const g = await loadGLB(cfg.file);
-      if (g) src = cloneDeep(g);
-    }
     const holder = new THREE.Group();
     const hero = new THREE.Group();
-    if (src) {
-      fitObject(src, cfg.h || 3.4, 0);
-      prep(src, true);
-      hero.add(src);
-      hero.rotation.y = cfg.rotY || 0;
-    }
     if (cfg.y) hero.position.y = cfg.y;     // в землю садим только модель, не весь мир
     holder.add(hero);
-    // окружение строим всегда: с реальными .glb локация иначе выглядит как «один предмет в пустоте»
-    const decor = buildLocationDecor(locId);
-    holder.add(decor);
     holder.add(locGround(cfg.gnd));
     holder.userData.loc = locId;
     holder.userData.hero = hero;
+    holder.userData.water = null;
     state.locGroup.add(holder);
     state.locModel = holder;
-    state.locCache = state.locCache || {};
-    state.locCache[locId] = holder;
-    state.lakeWater = locId === 'lake' ? (decor.userData && decor.userData.water) || null : null;
+    state.lakeWater = null;
     applyLocationLook(locId);
+
+    const useModel = !!(cfg.file && state.glb === 'ok');
+    state.locBuilding[locId] = holder;
+    const done = (async () => {
+      let src = null;
+      if (useModel) {
+        if (!state.loaders[cfg.file]) emit('world:locModel', { loc: locId, file: cfg.file, phase: 'start' });   // только если реально качаем
+        const g = await loadGLB(cfg.file);
+        if (g) src = cloneDeep(g);
+      }
+      delete state.locBuilding[locId];
+      if (src) {
+        fitObject(src, cfg.h || 3.4, 0);
+        prep(src, true);
+        hero.add(src);
+        hero.rotation.y = cfg.rotY || 0;
+        // радиус следа модели — чтобы редкая «линия горизонта» стояла за ней, а не внутри
+        let R = 3.5;
+        try { const sz = new THREE.Box3().setFromObject(src).getSize(new THREE.Vector3()); R = Math.max(sz.x, sz.z) / 2; } catch (e) { }
+        holder.add(buildHorizon(locId, R));
+        holder.userData.model = true;
+        holder.userData.radius = R;
+        state.locCache[locId] = holder;
+        state.locRetry = state.locRetry || {};
+        delete state.locRetry[locId];
+        emit('world:locModel', { loc: locId, file: cfg.file, phase: 'ok' });
+      } else {
+        const decor = buildLocationDecor(locId);
+        holder.add(decor);
+        holder.userData.model = false;
+        holder.userData.water = (decor.userData && decor.userData.water) || null;
+        if (state.locModel === holder) state.lakeWater = holder.userData.water;
+        if (!useModel) { state.locCache[locId] = holder; }       // .glb в принципе нет — заменители навсегда
+        else {
+          // модель не открылась: заменители временно, повтор через паузу
+          state.locRetry = state.locRetry || {};
+          const n = (state.locRetry[locId] || 0) + 1;
+          state.locRetry[locId] = n;
+          emit('world:locModel', { loc: locId, file: cfg.file, phase: n > LOC_RETRY_MAX ? 'giveup' : 'fail', attempt: n });
+          if (n <= LOC_RETRY_MAX) {
+            setTimeout(() => {
+              if (state.locCache[locId]) return;
+              state.locGroup.remove(holder);
+              disposeTree(holder);
+              if (state.locModel === holder) { state.locModel = null; if (state.curLoc === locId) showLocation(locId); }
+            }, 2500 * n);
+          } else state.locCache[locId] = holder;
+        }
+      }
+    })();
+    holder.userData.done = done;
+    return done;
+  }
+
+  function disposeTree(root) {
+    try {
+      root.traverse(o => {
+        if (!o.isMesh) return;
+        if (o.geometry && o.geometry.dispose) o.geometry.dispose();
+        const arr = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+        arr.forEach(m => { if (m && m.dispose && !m.userData.shared) m.dispose(); });
+      });
+    } catch (e) { }
+  }
+
+  /* Фоновая подкачка моделей локаций по одной — чтобы переход был мгновенным. */
+  function prefetchLocations() {
+    if (state.glb !== 'ok') return;
+    try { const c = navigator.connection; if (c && c.saveData) return; } catch (e) { }
+    const files = Object.keys(LOC_VIEW).map(k => LOC_VIEW[k].file).filter(f => f && !state.loaders[f]);
+    let i = 0;
+    const next = () => {
+      if (i >= files.length || state.glb !== 'ok') return;
+      const f = files[i++];
+      const p = state.loaders[f] ? state.loaders[f] : loadGLB(f);
+      p.then(() => setTimeout(next, 600), () => setTimeout(next, 600));
+    };
+    next();
+  }
+
+  /* Редкая «линия горизонта» вокруг настоящей модели: только за её краем, низко, в тумане. */
+  function buildHorizon(locId, R) {
+    const g = new THREE.Group();
+    const rockM = c => std(c, { rough: 1, flat: true });
+    const ring = (n, r0, r1, make) => {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + Math.random() * (Math.PI * 2 / n) * .7;
+        const r = r0 + Math.random() * (r1 - r0);
+        const o = make(i);
+        o.position.x += Math.cos(a) * r; o.position.z += Math.sin(a) * r;
+        g.add(o);
+      }
+    };
+    if (locId === 'forest') {
+      ring(9, R + 1.4, R + 4.2, () => {
+        const t = new THREE.Group();
+        const hh = 2.4 + Math.random() * 2.2;
+        t.add(shad(put(new THREE.Mesh(cyl(.14, .24, hh, 7), std(0x4a3222, { rough: .96 })), 0, hh / 2, 0)));
+        for (let k = 0; k < 3; k++) t.add(shad(put(new THREE.Mesh(cone(1.35 - k * .3, 1.6, 8), std(0x22411e, { rough: .96, flat: true })), 0, hh + .2 + k * .9, 0)));
+        t.scale.setScalar(.8 + Math.random() * .5);
+        return t;
+      });
+    } else if (locId === 'lake') {
+      const reed = std(0x2f4a2a, { rough: .96 });
+      ring(18, R + .4, R + 1.8, () => {
+        const s = new THREE.Mesh(cyl(.02, .05, .8 + Math.random() * .8, 5), reed);
+        s.position.y = .5; s.rotation.z = (Math.random() - .5) * .35;
+        return shad(s);
+      });
+    } else if (locId === 'mine' || locId === 'cave') {
+      ring(6, R + 1.6, R + 4.0, () => {
+        const m = new THREE.Mesh(sph(.7 + Math.random() * .7, 6), rockM(locId === 'cave' ? 0x2c2a3c : 0x4a3a2e));
+        m.scale.y = .45; m.position.y = .05;
+        return shad(m);
+      });
+    }
+    return g;
   }
 
   /* Большая «почва» локации: диск, дальний край которого съедает туман. */
@@ -3235,7 +3364,7 @@ const World = (function () {
     return m;
   }
 
-  /* декорации локаций — строятся всегда: и с настоящими моделями, и как замена им */
+  /* процедурные декорации локаций — ТОЛЬКО как замена, когда .glb-модель локации не открылась */
   function buildLocationDecor(locId) {
     const g = new THREE.Group();
     const rockM = c => std(c, { rough: 1, flat: true });
@@ -3855,7 +3984,7 @@ const World = (function () {
     get threeOk() { return THREE_OK; },
     get glbMode() { return state.glb; },
     get state() { return state; },
-    init, probe, resize, buildForge, showLocation, applyLocationLook,
+    init, probe, resize, buildForge, showLocation, applyLocationLook, prefetchLocations,
     fxForge, fxStoke, fxRare, fxCraft, fxClaim, fxEquip, fxSell, fxNpcNod, spark, ring, kick, pulse,
     hoverAt, setHighlight, project, anchorOf, anvilScreen, resetView, toggleIso, toggleRotate, zoom,
     setShadows, loadGLB, MiniViewer, Fallback, MONSTER_MODEL, LOC_VIEW, M
@@ -4690,6 +4819,13 @@ const UI = (function () {
     on('fx:battleStart', () => { });
     on('fx:battleClose', () => { if (battleView) battleView.clear(); });
     on('world:progress', e => { if (dom.loaderBar) dom.loaderBar.style.width = Math.round(e.detail.pct * 100) + '%'; });
+    on('world:locModel', e => {
+      const d = e.detail, L = LOCATIONS[d.loc];
+      const nm = L ? L.name : d.loc;
+      if (d.phase === 'start') toast('⏳ Подгружаю модель локации «' + nm + '»…', 'info', 2600);
+      else if (d.phase === 'fail') toast('⚠️ Модель «' + nm + '» не догрузилась (сеть?) — пока заменители, пробую ещё раз…', 'bad', 4200);
+      else if (d.phase === 'giveup') showBanner('⚠️ Модель локации «' + nm + '» (<code>' + d.file + '</code>) не открылась после ' + (d.attempt - 1) + ' попыток — показаны заменители. Перезагрузи страницу, когда сеть придёт в норму.', 12000);
+    });
   }
   function burstConfetti() {
     if (!dom.floaters) return;
@@ -4771,6 +4907,7 @@ const UI = (function () {
       setProgress(1, 'готово');
       bindSceneClicks(host);
       hoverLoop();
+      setTimeout(() => { try { World.prefetchLocations(); } catch (e) { } }, 4000);   // остальные локации — в фоне по одной
     } else setProgress(1, 'готово');
 
     setTimeout(() => { if (dom.loader) dom.loader.classList.remove('on'); }, 420);

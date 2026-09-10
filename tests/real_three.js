@@ -29,10 +29,34 @@ const t = (n, ok, x) => { (ok ? pass++ : fail++); console.log((ok ? '  ✓ ' : '
   t('ошибок окна за загрузку — ноль', errs.length === 0, errs.slice(0, 3));
 
   // все локации по очереди — и монстры в бою, и предметы в превью
+  const triOf = root => { const n = { c: 0 }; root.traverse(o => { if (o.isMesh && o.geometry) n.c += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n.c; };
   for (const loc of ['mine', 'cave', 'market', 'forest', 'castle', 'lake', 'forge']) {
     const r = await K.World.showLocation(loc);
     await new Promise(r => setTimeout(r, 100));
-    t('локация ' + loc + ' показана без исключений', true);
+    if (loc === 'forge') { t('локация forge показана без исключений', true); continue; }
+    const h = st.locModel;
+    const heroTri = h && h.userData.hero ? triOf(h.userData.hero) : 0;
+    // всё, что не модель и не почва: раньше тут были сотни примитивов (шары/балки/ёлки), теперь — только редкий горизонт
+    let others = 0; h.children.forEach(c => { if (c !== h.userData.hero && !(c.isMesh && c.geometry && c.geometry.type === 'CylinderGeometry' && c.geometry.parameters.radiusTop === 46)) c.traverse(o => { if (o.isMesh) others++; }); });
+    t('локация ' + loc + ': на сцене настоящая .glb (' + Math.round(heroTri) + ' tri), процедурного декора нет (' + others + ' мешей горизонта), holder.userData.model=true',
+      heroTri > 10000 && h.userData.model === true && others <= 40 && st.locCache[loc] === h, { heroTri, others, model: h.userData.model });
+  }
+  // неудачная загрузка не должна кэшироваться пустой локацией: подсовываем битый файл и смотрим, что через паузу идёт повтор
+  {
+    const LV = K.World.LOC_VIEW;
+    const saved = LV.mine.file;
+    LV.mine.file = 'net_takogo.glb';
+    delete st.locCache.mine;
+    st.locModel = null;
+    const t1 = Date.now();
+    await K.World.showLocation('mine');
+    const h = st.locModel;
+    t('битый .glb локации: сразу видна почва + заменители (model=false), в locCache не попал, retry=1',
+      h && h.userData.model === false && !st.locCache.mine && st.locRetry && st.locRetry.mine === 1 && !st.loaders['net_takogo.glb'], { model: h && h.userData.model, cached: !!st.locCache.mine, retry: st.locRetry && st.locRetry.mine, tookMs: Date.now() - t1 });
+    LV.mine.file = saved;                    // «сеть починилась»
+    await new Promise(r => setTimeout(r, 3200));
+    const h2 = st.locModel;
+    t('через ~2.5 с локация перезагружена уже с настоящей моделью', h2 && h2 !== h && h2.userData.model === true && st.locCache.mine === h2 && triOf(h2.userData.hero) > 10000, { same: h2 === h, model: h2 && h2.userData.model });
   }
   // рендер-цикл на реальных объектах: state.ok не должен упасть от step()
   const before = st.renderer.calls;
@@ -65,6 +89,7 @@ const t = (n, ok, x) => { (ok ? pass++ : fail++); console.log((ok ? '  ✓ ' : '
   // кэш загрузчика: один файл — один Promise (повторные loadGLB не читают диск заново)
   const ld = Object.keys(st.loaders);
   t('кэш loadGLB: каждый файл загружен один раз (' + ld.length + ' записей ≤ 24)', ld.length <= 24 && ld.length >= 10, ld.length);
+  t('кэш loadGLB: неудачная загрузка (net_takogo.glb) не осталась в кэше промисов', !st.loaders['net_takogo.glb'], ld);
   // напрямую: каждая модель из папки парсится настоящим GLTFLoader
   const files = fs.readdirSync(ROOT).filter(f => f.endsWith('.glb'));
   let okN = 0; const bad = [];
