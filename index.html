@@ -434,6 +434,7 @@
             inventory: [],
             resources: { iron: 0, silver: 0, gold: 0, mithril: 0, herb: 0, wood: 0, water: 0 },
             quests: {},
+            claimedQuests: {},
             totalForged: 0,
             totalMined: 0,
             totalVisited: 0,
@@ -453,6 +454,7 @@
                 if (saved) {
                     const data = JSON.parse(saved);
                     Object.assign(player, data);
+                    if (!player.claimedQuests) player.claimedQuests = {};
                     QUESTS.forEach(q => {
                         if (player.quests[q.id] === undefined) {
                             player.quests[q.id] = 0;
@@ -663,7 +665,7 @@
             let completed = 0;
             QUESTS.forEach(q => {
                 const progress = player.quests[q.id] || 0;
-                const done = progress >= q.target;
+                const done = !!player.claimedQuests[q.id] || progress >= q.target;
                 if (done) completed++;
                 const div = document.createElement('div');
                 div.className = 'quest-item';
@@ -688,8 +690,8 @@
             let anyCompleted = false;
             QUESTS.forEach(q => {
                 const progress = player.quests[q.id] || 0;
-                if (progress >= q.target && !q._claimed) {
-                    q._claimed = true;
+                if (progress >= q.target && !player.claimedQuests[q.id]) {
+                    player.claimedQuests[q.id] = true;
                     player.gold += q.reward;
                     anyCompleted = true;
                     playSound('victory');
@@ -788,6 +790,7 @@
                 player.energy = 5;
                 battleLogs.push(`<span class="system">💀 Вы проиграли! Осталось 5 энергии</span>`);
                 renderBattle();
+                updateUI();
                 setTimeout(() => {
                     alert('💀 Поражение! Осталось 5 энергии');
                     closeBattle();
@@ -1333,4 +1336,5 @@
         console.log('📐 Нажмите "ИЗОМЕТРИЯ" для изометрического вида');
     </script>
 </body>
+</html>
 </html>
