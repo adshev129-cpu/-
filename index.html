@@ -648,7 +648,7 @@ body{
 
   <div class="modal" id="m-help">
     <div class="modal-card">
-      <div class="modal-head"><h2>📖 Кузнечное ремесло</h2><span class="mh-sub">Клиентская книга подмастерья</span><button class="x" data-act="close">✕ ESC</button></div>
+      <div class="modal-head"><h2>📖 Кузнечное ремесло</h2><span class="mh-sub">Клиентская книга подмастерья · сборка <b id="k-build">3</b></span><button class="x" data-act="close">✕ ESC</button></div>
       <div class="modal-body">
         <div class="help-grid">
           <div class="hcard"><h4>⚒️ Ковка</h4><ul>
@@ -4821,7 +4821,7 @@ const UI = (function () {
       const mode = await World.probe();
       if (mode === 'ok') {
         setProgress(.46, 'модели найдены — примерка…');
-        toast('✅ Найден настоящий 3D-импорт: модели .glb из папки в деле.', 'good', 4200);
+        toast('✅ Найден настоящий 3D-импорт: модели .glb из папки в деле (сборка 3).', 'good', 4200);
       } else if (mode === 'off') {
         if (location.protocol === 'file:') {
           showBanner('ℹ️ Страница открыта с диска, и браузер не даёт читать <code>.glb</code> — включена процедурная графика. ' +
@@ -4908,6 +4908,7 @@ const UI = (function () {
     reload: () => { loadGame(); UI.sync(); return snapshot(); },
     tick: dt => worldTick(dt), forgeN: n => { for (let i = 0; i < n; i++) forge(); },
     give: (res, n) => { addRes(res, n == null ? 50 : n); saveGame(); UI.sync(); },
+    build: 3,
     help: () => console.log('%c⚒️ KUZ: state, forge(), craft("mithril_blade"), gather("mine"), Battle.start("dragon"), give("mithril",20), reset()', 'color:#ffb060')
   };
   window.KUZ.help();

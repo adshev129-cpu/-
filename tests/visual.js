@@ -60,6 +60,15 @@ function sysLibs() {   // libnss и т.п. — из архива @sparticuz/chro
     await page.screenshot({ path: path.join(OUT, 'craft_' + id + '.png') });
   }
   await page.evaluate(() => document.querySelector('#m-craft [data-act="close"]').click());
+  // бой: монстр в превью — настоящая .glb
+  await page.evaluate(() => { KUZ.state.level = 12; KUZ.state.hp = 999; KUZ.state.energy = 200; KUZ.state.loc = 'castle'; KUZ.World.showLocation('castle'); document.querySelector('[data-act="battle"]').click(); });
+  await sleep(800);
+  await page.evaluate(() => document.querySelector('#k-battlePick .pick[data-act="fight:knight"]').click());
+  await page.waitForFunction(() => KUZ.World.state.loaders['voin.glb.glb'], { timeout: 60000 }); await sleep(5000);
+  const bt = await page.evaluate(`(() => { const v = KUZ.UI._battleView && KUZ.UI._battleView(); const tri = ${tri}; return v && v.obj ? tri(v.obj) : -1; })()`);
+  t('бой: монстр в превью — настоящая .glb (' + bt + ' tri)', bt > 5000, bt);
+  await page.screenshot({ path: path.join(OUT, 'battle_knight.png') });
+  await page.evaluate(() => document.querySelector('#m-battle [data-act="close"]').click());
   t('ошибок страницы — ноль', errs.length === 0, errs.slice(0, 3));
   await browser.close();
   console.log(`\n=== visual: ${pass} прошло, ${fail} упало; скриншоты в tests/shots ===`);
