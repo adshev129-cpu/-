@@ -1238,7 +1238,10 @@ function loadGame() {
 
 function applyOfflineProgress() {
   const now = Date.now();
-  const dt = clamp((now - (S.lastSeen || now)) / 1000, 0, CFG.maxOfflineHours * 3600);
+  // Считаем только время, которое НЕ покрыл живой тик. Вкладка в фоне продолжает тикать
+  // (браузер лишь замедляет таймер), и без этого возврат во вкладку начислял реген второй раз.
+  const since = Math.max(S.lastSeen || now, lastTick || 0);
+  const dt = clamp((now - since) / 1000, 0, CFG.maxOfflineHours * 3600);
   const gainedEnergy = dt * CFG.regenEnergyPerSec;
   const gainedHp = dt * CFG.regenHpPerSec;
   const before = S.energy, bhp = S.hp;
@@ -1857,10 +1860,10 @@ const Battle = {
 /* ============================================================================
  *  ТАКТ МИРА: энергия, жар, смена дня
  * ==========================================================================*/
-let lastTick = Date.now();
+let lastTick = 0;                       // 0 — живой тик ещё не шёл (важно для оффлайн-расчёта при старте)
 let currentDay = dayKey();
 function worldTick(dtSec) {
-  dtSec = dtSec == null ? clamp((Date.now() - lastTick) / 1000, 0, 5) : dtSec;
+  dtSec = dtSec == null ? clamp((Date.now() - (lastTick || Date.now())) / 1000, 0, 5) : dtSec;
   lastTick = Date.now();
   let dirty = false;
   const keep = 1 - (equippedStats().heatKeep || 0);

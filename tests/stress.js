@@ -98,6 +98,13 @@ const sec = n => console.log('\n── ' + n + ' ' + '─'.repeat(Math.max(2, 60
     t('сейв валидный JSON < 20 КБ', raw && raw.length < 20000 && JSON.parse(raw).level === S.level, raw && raw.length);
     S.energy = 10; S.hp = 10; K.save(); clock.off += 3 * 3600e3; K.reload();
     t('3 часа оффлайна: энергия и HP восстановились', S.energy > 10 + 3 * 3600 * CFG.regenEnergyPerSec - 1 || S.energy === K.snapshot().maxEnergy, { e: S.energy, hp: S.hp });
+    // вкладка в фоне продолжает тикать (троттлинг таймера) — возврат не должен начислять реген второй раз
+    S.energy = 10; S.hp = 10;
+    Object.defineProperty(doc, 'hidden', { value: true, configurable: true }); doc.dispatchEvent(new w.Event('visibilitychange'));
+    for (let i = 0; i < 180; i++) { clock.off += 1000; K.tick(); }
+    const eBg = S.energy;
+    Object.defineProperty(doc, 'hidden', { value: false, configurable: true }); doc.dispatchEvent(new w.Event('visibilitychange'));
+    t('фоновые тики + возврат во вкладку: реген не удваивается', Math.abs(eBg - (10 + 180 * CFG.regenEnergyPerSec)) < 1.5 && Math.abs(S.energy - eBg) < 1, { bg: eBg, back: S.energy });
     w.localStorage.setItem('kuznitsa_sudby_v1', JSON.stringify({ v: 1, level: -5, xp: 5000, gold: 'много', energy: 1e9, hp: NaN, loc: 'марс', name: 'x'.repeat(500), cds: { mine: 1e18 }, res: { iron: -3 }, inv: { фигня: 2 }, equip: { weapon: 'dragon' } }));
     K.reload();
     t('битый сейв залечен (в т.ч. xp>порога → уровни)', S.level > 1 && S.xp < K.snapshot().xpNeeded && S.gold >= 0 && S.energy <= K.snapshot().maxEnergy && Number.isFinite(S.hp) && K.LOCATIONS[S.loc] && S.name.length <= 16 && !S.cds.mine, { l: S.level, g: S.gold, e: S.energy, hp: S.hp, loc: S.loc, name: S.name.length });
