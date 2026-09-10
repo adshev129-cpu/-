@@ -2230,9 +2230,11 @@ const World = (function () {
     mine:   { file: 'rudnik.glb',   h: 4.0, rotY: .2,  gnd: 0x3d2c22 },
     cave:   { file: 'peschera.glb', h: 4.0, rotY: -.4, gnd: 0x232036 },
     market: { file: 'rynok.glb',    h: 3.5, rotY: .1,  gnd: 0x4b3a26 },
-    forest: { file: 'forest.glb',   h: 4.5, rotY: 0,   gnd: 0x21301c },
+    forest: { file: 'forest.glb',   h: 4.5, rotY: 0, y: -.7, gnd: 0x21301c },
     castle: { file: 'castle.glb',   h: 5.4, rotY: 0, y: -.6, gnd: 0x2b2c3a },
-    lake:   { file: 'lake.glb',     h: 3.4, rotY: 0,  gnd: 0x1e2e30 }
+    /* у lake.glb модель — диорама на кубическом постаменте (нижние ~1.1 м из 3.4 — сплошной блок);
+       постамент прячем под диск почвы, снаружи остаётся зеркало воды, берег, ели и гора */
+    lake:   { file: 'lake.glb',     h: 3.4, rotY: 0, y: -.8, gnd: 0x16262c }
   };
   const MONSTER_MODEL = {
     goblin:     { model: 'goblin.glb',    h: 1.7, tint: 0x9fd88a, fb: 'goblin' },
@@ -2986,42 +2988,7 @@ const World = (function () {
       lampG.position.set(-2.4, 3.9, 1.2);
       state.roomGroup.add(lampG);
 
-      const woodM = std(0x5e452c, { rough: .95 });
-      for (let i = 0; i < 7; i++) {
-        const log = new THREE.Mesh(cyl(.17, .18, 1.8, 8), woodM);
-        log.rotation.z = Math.PI / 2;
-        log.position.set(-7.6, .21 + (i % 3) * .34, -3.6 + Math.floor(i / 3) * .42);
-        log.castShadow = true;
-        state.roomGroup.add(log);
-      }
-      state.roomGroup.add(shad(put(new THREE.Mesh(cyl(.28, .22, .48, 14), std(0x4b4f55, { metal: .6, rough: .5 })), 2.05, .24, 3.1)));
-      for (let i = 0; i < 3; i++) {
-        const crate = new THREE.Mesh(box(.74, .74, .74), std(0x5b4227, { rough: .95 }));
-        crate.position.set(4.8, .37 + (i === 2 ? .74 : 0), -2.6 + i * .86);
-        crate.rotation.y = Math.random() * .6;
-        crate.castShadow = crate.receiveShadow = true;
-        state.roomGroup.add(crate);
-      }
-      const rack = new THREE.Group();
-      rack.add(new THREE.Mesh(box(2.6, .14, .18), woodM));
-      for (let i = 0; i < 6; i++) {
-        const t = new THREE.Mesh(box(.08, .7 + Math.random() * .45, .08), std(0x8a9099, { metal: .82, rough: .35 }));
-        t.position.set(-1.05 + i * .42, -.48, 0);
-        rack.add(t);
-      }
-      rack.position.set(-6.2, 3.3, -6.9);
-      state.roomGroup.add(shad(rack));
-
-      const coalPile = new THREE.Group();
-      const coalMat = std(0x1a1210, { rough: 1, emissive: 0x5a1804, emissiveIntensity: 1.1 });
-      for (let i = 0; i < 26; i++) {
-        const c = new THREE.Mesh(sph(.06 + Math.random() * .07, 6), coalMat);
-        const a = Math.random() * Math.PI * 2, r = Math.random() * .6;
-        c.position.set(Math.cos(a) * r, .04 + Math.random() * .08, Math.sin(a) * r);
-        coalPile.add(c);
-      }
-      coalPile.position.set(2.5, 0, 3.0);
-      state.roomGroup.add(shad(coalPile));
+      // реквизит из примитивов (дрова, ведро, ящики, стойка, уголь) убран: в кузнице стоят только настоящие .glb
 
       [[-9.4, -6.4], [9.4, -6.4], [-9.4, 4.6], [9.4, 4.6]].forEach(p => {
         const t = new THREE.Group();
@@ -3248,12 +3215,8 @@ const World = (function () {
         prep(src, true);
         hero.add(src);
         hero.rotation.y = cfg.rotY || 0;
-        // радиус следа модели — чтобы редкая «линия горизонта» стояла за ней, а не внутри
-        let R = 3.5;
-        try { const sz = new THREE.Box3().setFromObject(src).getSize(new THREE.Vector3()); R = Math.max(sz.x, sz.z) / 2; } catch (e) { }
-        holder.add(buildHorizon(locId, R));
+        // вокруг настоящей модели — ничего процедурного: только почва и туман
         holder.userData.model = true;
-        holder.userData.radius = R;
         state.locCache[locId] = holder;
         state.locRetry = state.locRetry || {};
         delete state.locRetry[locId];
@@ -3310,45 +3273,6 @@ const World = (function () {
       p.then(() => setTimeout(next, 600), () => setTimeout(next, 600));
     };
     next();
-  }
-
-  /* Редкая «линия горизонта» вокруг настоящей модели: только за её краем, низко, в тумане. */
-  function buildHorizon(locId, R) {
-    const g = new THREE.Group();
-    const rockM = c => std(c, { rough: 1, flat: true });
-    const ring = (n, r0, r1, make) => {
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2 + Math.random() * (Math.PI * 2 / n) * .7;
-        const r = r0 + Math.random() * (r1 - r0);
-        const o = make(i);
-        o.position.x += Math.cos(a) * r; o.position.z += Math.sin(a) * r;
-        g.add(o);
-      }
-    };
-    if (locId === 'forest') {
-      ring(9, R + 1.4, R + 4.2, () => {
-        const t = new THREE.Group();
-        const hh = 2.4 + Math.random() * 2.2;
-        t.add(shad(put(new THREE.Mesh(cyl(.14, .24, hh, 7), std(0x4a3222, { rough: .96 })), 0, hh / 2, 0)));
-        for (let k = 0; k < 3; k++) t.add(shad(put(new THREE.Mesh(cone(1.35 - k * .3, 1.6, 8), std(0x22411e, { rough: .96, flat: true })), 0, hh + .2 + k * .9, 0)));
-        t.scale.setScalar(.8 + Math.random() * .5);
-        return t;
-      });
-    } else if (locId === 'lake') {
-      const reed = std(0x2f4a2a, { rough: .96 });
-      ring(18, R + .4, R + 1.8, () => {
-        const s = new THREE.Mesh(cyl(.02, .05, .8 + Math.random() * .8, 5), reed);
-        s.position.y = .5; s.rotation.z = (Math.random() - .5) * .35;
-        return shad(s);
-      });
-    } else if (locId === 'mine' || locId === 'cave') {
-      ring(6, R + 1.6, R + 4.0, () => {
-        const m = new THREE.Mesh(sph(.7 + Math.random() * .7, 6), rockM(locId === 'cave' ? 0x2c2a3c : 0x4a3a2e));
-        m.scale.y = .45; m.position.y = .05;
-        return shad(m);
-      });
-    }
-    return g;
   }
 
   /* Большая «почва» локации: диск, дальний край которого съедает туман. */
@@ -3506,7 +3430,7 @@ const World = (function () {
     market: { pos: [6.5, 3.1, 7.3],  tgt: [0, 1.15, .3] },
     forest: { pos: [6.3, 3.1, 7.3],  tgt: [0, 1.85, .2] },
     castle: { pos: [8.6, 4.6, 9.6],  tgt: [0, 2.5, -.5] },
-    lake:   { pos: [6.9, 3.2, 7.7],  tgt: [0, 1.05, .2] }
+    lake:   { pos: [6.4, 3.0, 7.1],  tgt: [0, .75, .1] }
   };
 
   function applyLocationLook(locId, instant) {
@@ -3949,12 +3873,17 @@ const World = (function () {
       if (ring) { ring.material.opacity = .3 + Math.sin(t * 3) * .16; }
       renderer.render(scene, camera);
     }
+    let setSeq = 0, retryT = 0;
     api.set = async function (spec) {
       if (!api.ready) return;
+      const seq = ++setSeq;
+      clearTimeout(retryT);
       let src = null;
       if (spec.model && state.glb === 'ok') {
         const g = await loadGLB(spec.model);
+        if (seq !== setSeq) return;                 // пока грузили, выбрали другой предмет
         if (g) src = cloneDeep(g);
+        else retryT = setTimeout(() => { if (seq === setSeq && api.visible) api.set(spec); }, 3000);   // неудача не кэшируется — повтор
       }
       if (!src) src = spec.fallback ? spec.fallback() : Fallback.bench();
       fitObject(src, spec.height || 2.2, 0);
@@ -4314,6 +4243,7 @@ const UI = (function () {
       craftShell = body;
       const cv = document.getElementById('k-craftCanvas');
       craftView = World.MiniViewer(cv);
+      UI._craftView = () => craftView;
       craftView.show();
       craftView.spin = 1.5;
       /* вращение предпросмотра мышью */

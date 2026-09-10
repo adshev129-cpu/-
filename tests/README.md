@@ -15,3 +15,13 @@ node sim_fights.js 150               # матрица «уровень × мон
 
 `harness.js` поднимает страницу в jsdom с настоящим three (только `WebGLRenderer` подменён —
 jsdom не умеет WebGL), подменёнными часами (`clock.off`) и детерминированным `Math.random`.
+
+## visual.js — настоящий браузер со скриншотами
+Headless Chromium (`@sparticuz/chromium`, WebGL через SwiftShader) открывает игру с `http://localhost:8000`,
+three.js подставляется из `node_modules` (CDN из песочницы может не открываться), и снимает
+кузницу, все 6 локаций и превью верстака в `tests/shots/` (папка в .gitignore). 14 проверок:
+локации и предметы — настоящие `.glb` (≈40k треугольников), рядом с моделью только диск почвы,
+в кузнице нет реквизита из примитивов.
+
+    npm i            # ставит и @sparticuz/chromium + puppeteer-core
+    node visual.js   # ~2 мин, нужен http.server на :8000

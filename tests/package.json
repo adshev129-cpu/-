@@ -2,5 +2,10 @@
   "name": "kuznitsa-tests",
   "private": true,
   "description": "Стенд для index.html: стресс-тест, симулятор баланса, проверка .glb. npm i && node stress.js",
-  "dependencies": { "jsdom": "^24.0.0", "three": "0.128.0" }
+  "dependencies": {
+    "@sparticuz/chromium": "^131.0.1",
+    "jsdom": "^24.0.0",
+    "puppeteer-core": "^23.11.1",
+    "three": "0.128.0"
+  }
 }
