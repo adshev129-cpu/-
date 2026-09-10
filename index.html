@@ -1210,6 +1210,8 @@ function loadGame() {
   S.sound = !!S.sound;
   S.gold = Math.max(0, Math.floor(S.gold || 0));
   S.xp = Math.max(0, Math.floor(S.xp || 0));
+  // опыт «через край» (чужой сейв, смена формулы уровней) — конвертируем в уровни, а не держим полоску >100%
+  while (S.xp >= xpNeeded() && S.level < 999) { S.xp -= xpNeeded(); S.level++; }
   S.heat = clamp(Number(S.heat) || 0, 0, CFG.heatMax);
   S.streak = Math.max(0, Math.floor(S.streak || 0));
   S.bestStreak = Math.max(S.streak, Math.floor(S.bestStreak || 0));
@@ -1482,15 +1484,17 @@ function sellItem(id, n) {
 
 /* sellAll(includePotions) — «продать всё». По умолчанию зелья и экипированное остаются. */
 function sellAll(includePotions) {
+  // надетое остаётся в одном экземпляре, лишние копии того же изделия уходят купцу
   const ids = Object.keys(S.inv).filter(id =>
-    !isEquippedAny(id) && ITEMS[id] && (includePotions ? true : !ITEMS[id].use));
+    ITEMS[id] && (includePotions ? true : !ITEMS[id].use) && S.inv[id] > (isEquippedAny(id) ? 1 : 0));
   if (!ids.length) { emit('ui:toast', { text: 'Нечего продавать.', kind: 'warn' }); return { ok: false, n: 0 }; }
   let total = 0, n = 0;
   for (const id of ids) {
-    const while_ = S.inv[id];
-    for (let i = 0; i < while_; i++) total += itemPrice(id);
-    n += while_;
-    delete S.inv[id];
+    const keep = isEquippedAny(id) ? 1 : 0;
+    const cnt = S.inv[id] - keep;
+    for (let i = 0; i < cnt; i++) total += itemPrice(id);
+    n += cnt;
+    if (keep) S.inv[id] = keep; else delete S.inv[id];
   }
   for (const s in S.equip) if (!S.equip[s] || !countItem(S.equip[s])) S.equip[s] = null;
   S.gold += total; S.stats.goldEarned += total; S.stats.sold += n;
@@ -4322,7 +4326,7 @@ const UI = (function () {
     body.innerHTML = MONSTERS.map(m => {
       const here = (LOCATIONS[S.loc].monsters || []).indexOf(m.id) >= 0;
       const ok = canFight(m.id).ok;
-      const hp = Math.round(m.hp * (1 + (S.level - 1) * .13));
+      const hp = Math.round(m.hp * (1 + (S.level - 1) * CFG.monsterHpPerLevel));
       return '<div class="pick' + (here ? ' here' : '') + (ok ? '' : ' locked') + '" data-act="' + (ok ? 'fight:' + m.id : '') + '"' + (ok ? ' role="button" tabindex="0"' : '') + '>' +
         '<span class="p-ic">' + m.icon + '</span>' +
         '<span class="p-name">' + m.name + (here ? '<i class="p-here">тут водится</i>' : '') + '</span>' +
@@ -4347,6 +4351,7 @@ const UI = (function () {
       '<div class="blog" id="k-bLog"></div>';
     battleShell = body;
     battleView = World.MiniViewer(document.getElementById('k-battleCanvas'));
+    UI._battleView = () => battleView;
     battleView.show();
     const cv = document.getElementById('k-battleCanvas');
     let drag = null;
